@@ -1,0 +1,19 @@
+{
+  "name": "ninka",
+  "version": "1.0.0",
+  "description": "authentication and authorization as a service",
+  "main": "src/main.js",
+  "author": "Marco Castignoli",
+  "license": "MIT",
+  "scripts": {
+    "start": "node src/main.js"
+  },
+  "dependencies": {
+    "bcrypt": "^5.0.0",
+    "body-parser": "^1.19.0",
+    "cors": "^2.8.5",
+    "express": "^4.17.1",
+    "express-jwt": "^6.0.0",
+    "mongodb": "^3.6.0"
+  }
+}
