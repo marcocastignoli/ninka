@@ -20,12 +20,12 @@ app.use(function (err, req, res, next) {
     }
   });
 
-MongoClient.connect('mongodb://localhost:27017', function (err, client) {
-    if (err) {
-        process.kill()
-    }
-    const db = client.db('ninka')
+(async ()=>{
 
+    const client = await MongoClient.connect('mongodb://localhost:27017', { useNewUrlParser: true, useUnifiedTopology: true })
+    
+    const db = client.db('ninka')
+    
     app.post('/auth/register/:app', async (req, res) => {
         if (req.body.username && req.body.password && req.params.app) {
             const app =  await db.collection('apps').findOne({ name: req.params.app })
@@ -51,7 +51,7 @@ MongoClient.connect('mongodb://localhost:27017', function (err, client) {
             return res.send('miss_arguments')
         }
     })
-
+    
     app.post('/auth/login/:app', async (req, res) => {
         if (req.body.username && req.body.password && req.params.app) {
             const app =  await db.collection('apps').findOne({ name: req.params.app })
@@ -62,7 +62,7 @@ MongoClient.connect('mongodb://localhost:27017', function (err, client) {
                 name: req.body.username,
                 app: new mongodb.ObjectID(app._id)
             })
-            if (err || !user) {
+            if (!user) {
                 return res.send('wrong_username')
             }
             if( bcrypt.compareSync( req.body.password, user.pwd ) ) {
@@ -75,7 +75,7 @@ MongoClient.connect('mongodb://localhost:27017', function (err, client) {
             return res.send('err: inviami username e password')
         }
     })
-
+    
     app.get('/users/my', async function (req, res) {
         try {
             const result = await db.collection('users').findOne({
@@ -86,6 +86,6 @@ MongoClient.connect('mongodb://localhost:27017', function (err, client) {
             res.send({})
         }
     })
-
+    
     app.listen(8888)
-})
+})()
