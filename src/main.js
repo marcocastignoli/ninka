@@ -86,6 +86,31 @@ app.use(function (err, req, res, next) {
             res.send({})
         }
     })
+
+    app.get('/on/:app/can/:user/:permission', async function (req, res) {
+        const app =  await db.collection('apps').findOne({ name: req.params.app })
+        if (!app) {
+            return res.send('wrong_app')
+        }
+        
+        const user = await db.collection('users').findOne({
+            name: req.params.user,
+            app: new mongodb.ObjectID(app._id)
+        })
+        if (!user) {
+            return res.send('wrong_username')
+        }
+
+        const permission = await db.collection('permissions').findOne({
+            app: new mongodb.ObjectID(app._id),
+            name: req.params.permission
+        })
+        if (!permission) {
+            return res.send('wrong_permission')
+        }
+        
+        return res.send(permission.role.includes(user.role))
+    })
     
     app.listen(8888)
 })()
