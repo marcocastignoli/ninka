@@ -5,6 +5,7 @@ const cors = require('cors')
 const jwt = require('jsonwebtoken')
 const jwtCheck = require('express-jwt')
 const bcrypt = require( 'bcrypt' )
+const randomize = require('randomatic')
 
 const MongoClient = mongodb.MongoClient
 
@@ -27,24 +28,47 @@ app.use(function (err, req, res, next) {
     const db = client.db('ninka')
     
     app.post('/auth/register/:app', async (req, res) => {
-        if (req.body.username && req.body.password && req.params.app) {
+        if (req.body.username && req.params.app) {
             const app =  await db.collection('apps').findOne({ name: req.params.app })
             if (!app) {
                 return res.send('wrong_app')
+            }
+            if (app.auth === 'sms' && !req.body.phone) {
+                return res.send('miss_number')
+            } else if ((!app.auth || app.auth === 'password') && !req.body.password ) {
+                return res.send('miss_password')
             }
             const user =  await db.collection('users').findOne({ name: req.body.username, app: new mongodb.ObjectID(app._id) })
             if (user) {
                 return res.send('username_taken')
             }
             try {
-                const hash = await bcrypt.hash( req.body.password, 10)
-                db.collection('users').insert({
+                let newUser = {
                     name: req.body.username,
-                    pwd: hash,
-                    app: new mongodb.ObjectID(app._id)
-                })
+                    app: new mongodb.ObjectID(app._id),
+                    active: false
+                }
+                if (app.auth === 'sms') {
+                    newUser['phone'] = req.body.phone
+                    const verificationCode = randomize('000000')
+                    console.log(verificationCode)
+                    const hash = await bcrypt.hash( verificationCode, 10)
+                    newUser['verification_code'] = hash
+                    const {sendToken} = require('./auth/sms')
+                    const sendSms = await sendToken(newUser['phone'], verificationCode, app.sms_content ? app.sms_content : '')
+                    if (sendSms.status !== 200) {
+                        return res.send('sms_failed')
+                    }
+                    newUser['active'] = true
+                } else {
+                    const hash = await bcrypt.hash( req.body.password, 10)
+                    newUser['pwd'] = hash
+                    newUser['active'] = true
+                }
+                db.collection('users').insert(newUser)
                 return res.send('success')
             } catch (e) {
+                console.log(e)
                 return res.send('error')
             }
         } else {
@@ -53,10 +77,15 @@ app.use(function (err, req, res, next) {
     })
     
     app.post('/auth/login/:app', async (req, res) => {
-        if (req.body.username && req.body.password && req.params.app) {
+        if (req.body.username && req.params.app) {
             const app =  await db.collection('apps').findOne({ name: req.params.app })
             if (!app) {
                 return res.send('wrong_app')
+            }
+            if (app.auth === 'sms' && !req.body.verification_code) {
+                return res.send('miss_number')
+            } else if ((!app.auth || app.auth === 'password') && !req.body.password ) {
+                return res.send('miss_password')
             }
             const user = await db.collection('users').findOne({
                 name: req.body.username,
@@ -65,11 +94,23 @@ app.use(function (err, req, res, next) {
             if (!user) {
                 return res.send('wrong_username')
             }
-            if( bcrypt.compareSync( req.body.password, user.pwd ) ) {
-                const token = jwt.sign({ username: user.username, id: user._id }, _PRIVATE_KEY);
-                return res.send(token)       
-            } else {
-                return res.send('wrong_password')
+            if (!user.active) {
+                return res.send('user_inactive')
+            }
+            if (app.auth === 'sms') {
+                if( bcrypt.compareSync( req.body.verification_code, user.verification_code ) ) {
+                    const token = jwt.sign({ username: user.username, id: user._id }, _PRIVATE_KEY);
+                    return res.send(token)       
+                } else {
+                    return res.send('wrong_verification_code')
+                }
+            } else if (!req.body.password ) {
+                if( bcrypt.compareSync( req.body.password, user.pwd ) ) {
+                    const token = jwt.sign({ username: user.username, id: user._id }, _PRIVATE_KEY);
+                    return res.send(token)       
+                } else {
+                    return res.send('wrong_password')
+                }
             }
         } else {
             return res.send('err: inviami username e password')
