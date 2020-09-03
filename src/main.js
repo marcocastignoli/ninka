@@ -7,6 +7,7 @@ const jwtCheck = require('express-jwt')
 const bcrypt = require( 'bcrypt' )
 const randomize = require('randomatic')
 const https = require('https');
+const http = require('http');
 const fs = require('fs');
 const config = require('./config');
 
