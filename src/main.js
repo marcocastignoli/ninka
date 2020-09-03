@@ -31,16 +31,16 @@ app.use(function (err, req, res, next) {
         if (req.body.username && req.params.app) {
             const app =  await db.collection('apps').findOne({ name: req.params.app })
             if (!app) {
-                return res.send('wrong_app')
+                return res.status(404).send('wrong_app')
             }
             if (app.auth === 'sms' && !req.body.phone) {
-                return res.send('miss_number')
+                return res.status(400).send('miss_number')
             } else if ((!app.auth || app.auth === 'password') && !req.body.password ) {
-                return res.send('miss_password')
+                return res.status(400).send('miss_password')
             }
             const user =  await db.collection('users').findOne({ name: req.body.username, app: new mongodb.ObjectID(app._id) })
             if (user) {
-                return res.send('username_taken')
+                return res.status(409).send('username_taken')
             }
             try {
                 let newUser = {
@@ -57,7 +57,7 @@ app.use(function (err, req, res, next) {
                     const {sendToken} = require('./auth/sms')
                     const sendSms = await sendToken(newUser['phone'], verificationCode, app.sms_content ? app.sms_content : '')
                     if (sendSms.status !== 200) {
-                        return res.send('sms_failed')
+                        return res.status(500).send('sms_failed')
                     }
                     newUser['active'] = true
                 } else {
@@ -69,10 +69,10 @@ app.use(function (err, req, res, next) {
                 return res.send('success')
             } catch (e) {
                 console.log(e)
-                return res.send('error')
+                return res.status(500).send('error')
             }
         } else {
-            return res.send('miss_arguments')
+            return res.status(400).send('miss_arguments')
         }
     })
     
@@ -80,40 +80,40 @@ app.use(function (err, req, res, next) {
         if (req.body.username && req.params.app) {
             const app =  await db.collection('apps').findOne({ name: req.params.app })
             if (!app) {
-                return res.send('wrong_app')
+                return res.status(404).send('wrong_app')
             }
             if (app.auth === 'sms' && !req.body.verification_code) {
-                return res.send('miss_number')
+                return res.status(400).send('miss_number')
             } else if ((!app.auth || app.auth === 'password') && !req.body.password ) {
-                return res.send('miss_password')
+                return res.status(400).send('miss_password')
             }
             const user = await db.collection('users').findOne({
                 name: req.body.username,
                 app: new mongodb.ObjectID(app._id)
             })
             if (!user) {
-                return res.send('wrong_username')
+                return res.status(404).send('wrong_username')
             }
             if (!user.active) {
-                return res.send('user_inactive')
+                return res.status(401).send('user_inactive')
             }
             if (app.auth === 'sms') {
                 if( bcrypt.compareSync( req.body.verification_code, user.verification_code ) ) {
                     const token = jwt.sign({ username: user.username, id: user._id }, _PRIVATE_KEY);
                     return res.send(token)       
                 } else {
-                    return res.send('wrong_verification_code')
+                    return res.status(401).send('wrong_verification_code')
                 }
             } else if (!req.body.password ) {
                 if( bcrypt.compareSync( req.body.password, user.pwd ) ) {
                     const token = jwt.sign({ username: user.username, id: user._id }, _PRIVATE_KEY);
                     return res.send(token)       
                 } else {
-                    return res.send('wrong_password')
+                    return res.status(401).send('wrong_password')
                 }
             }
         } else {
-            return res.send('err: inviami username e password')
+            return res.status(400).send('err: inviami username e password')
         }
     })
     
@@ -131,7 +131,7 @@ app.use(function (err, req, res, next) {
     app.get('/on/:app/can/:user/:permission', async function (req, res) {
         const app =  await db.collection('apps').findOne({ name: req.params.app })
         if (!app) {
-            return res.send('wrong_app')
+            return res.status(404).send('wrong_app')
         }
         
         const user = await db.collection('users').findOne({
@@ -139,7 +139,7 @@ app.use(function (err, req, res, next) {
             app: new mongodb.ObjectID(app._id)
         })
         if (!user) {
-            return res.send('wrong_username')
+            return res.status(404).send('wrong_username')
         }
 
         const permission = await db.collection('permissions').findOne({
@@ -147,7 +147,7 @@ app.use(function (err, req, res, next) {
             name: req.params.permission
         })
         if (!permission) {
-            return res.send('wrong_permission')
+            return res.status(400).send('wrong_permission')
         }
         
         return res.send(permission.role.includes(user.role))
