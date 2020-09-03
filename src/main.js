@@ -159,7 +159,7 @@ app.use(function (err, req, res, next) {
     
     const httpServer = http.createServer(app);
 
-    httpServer.listen(80, () => {
+    httpServer.listen(8888, () => {
         console.log('HTTP Server running on port 80');
     });
 
