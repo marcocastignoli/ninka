@@ -6,6 +6,9 @@ const jwt = require('jsonwebtoken')
 const jwtCheck = require('express-jwt')
 const bcrypt = require( 'bcrypt' )
 const randomize = require('randomatic')
+const https = require('https');
+const fs = require('fs');
+const config = require('./config');
 
 const MongoClient = mongodb.MongoClient
 
@@ -153,5 +156,20 @@ app.use(function (err, req, res, next) {
         return res.send(permission.role.includes(user.role))
     })
     
-    app.listen(8888)
+    const httpServer = http.createServer(app);
+
+    httpServer.listen(80, () => {
+        console.log('HTTP Server running on port 80');
+    });
+
+    if (config.https) {
+        const httpsServer = https.createServer({
+            key: fs.readFileSync(config.https.key),
+            cert: fs.readFileSync(config.https.cert),
+        }, app);
+        httpsServer.listen(443, () => {
+            console.log('HTTPS Server running on port 443');
+        });
+    }
+
 })()
