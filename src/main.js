@@ -50,7 +50,8 @@ app.use(function (err, req, res, next) {
                 let newUser = {
                     name: req.body.username,
                     app: new mongodb.ObjectID(app._id),
-                    active: false
+                    active: false,
+                    info: req.body.info || {}
                 }
                 if (app.auth === 'sms') {
                     newUser['phone'] = req.body.phone
@@ -101,21 +102,23 @@ app.use(function (err, req, res, next) {
             if (!user.active) {
                 return res.status(401).send('user_inactive')
             }
+            let token
             if (app.auth === 'sms') {
                 if( bcrypt.compareSync( req.body.verification_code, user.verification_code ) ) {
-                    const token = jwt.sign({ username: user.username, id: user._id }, _PRIVATE_KEY);
-                    return res.send(token)       
+                   token = jwt.sign({ username: user.username, id: user._id }, _PRIVATE_KEY);
+                   delete user.verification_code      
                 } else {
                     return res.status(401).send('wrong_verification_code')
                 }
             } else if (!req.body.password ) {
                 if( bcrypt.compareSync( req.body.password, user.pwd ) ) {
-                    const token = jwt.sign({ username: user.username, id: user._id }, _PRIVATE_KEY);
-                    return res.send(token)       
+                    token = jwt.sign({ username: user.username, id: user._id }, _PRIVATE_KEY);
+                    delete user.pwd
                 } else {
                     return res.status(401).send('wrong_password')
                 }
             }
+            return res.send({token, user})
         } else {
             return res.status(400).send('err: inviami username e password')
         }
